@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluación Manejo de Inventario - Drive Sync</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        i[data-lucide] svg { display: inline-block; }
+        .loader { border-top-color: #1e3a8a; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .progress-bar { transition: width 0.4s ease-in-out; }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // --- CONFIGURACIÓN CRÍTICA ---
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby9LB6-eKa1F4cskoxV_n32ZsPTNPVoGZA3TKuuOw/dev"; 
+
+        const Icon = ({ name, className }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (window.lucide && iconRef.current) {
+                    iconRef.current.innerHTML = '';
+                    const i = document.createElement('i');
+                    i.setAttribute('data-lucide', name);
+                    i.className = className;
+                    iconRef.current.appendChild(i);
+                    window.lucide.createIcons();
+                }
+            }, [name, className]);
+            return <span ref={iconRef} className="inline-flex items-center justify-center"></span>;
+        };
+
+        const questions = [
+            { id: 1, text: 'El manejo de inventario es el proceso de planificación, control y ejecución de la adquisición y almacenamiento de mercancías.', answer: true, explanation: 'Verdadero. Define el marco fundamental para administrar existencias.', icon: "box", color: "text-blue-900" },
+            { id: 2, text: 'Uno de los objetivos del inventario es evitar rupturas de stock.', answer: true, explanation: 'Verdadero. Busca garantizar el flujo continuo de materiales.', icon: "check-circle", color: "text-blue-900" },
+            { id: 3, text: 'El inventario no ayuda a equilibrar la demanda frente a la producción.', answer: false, explanation: 'Falso. Una de sus funciones principales es precisamente equilibrar la demanda vs. producción.', icon: "scale", color: "text-blue-900" },
+            { id: 4, text: 'Los sistemas de inventarios regulan el flujo de entradas y salidas de mercancía.', answer: true, explanation: 'Verdadero. Garantizan el abastecimiento oportuno.', icon: "refresh-cw", color: "text-blue-900" },
+            { id: 5, text: 'El método PEPS significa "Primero en Entrar, Primero en Salir".', answer: true, explanation: 'Verdadero. También conocido como FIFO.', icon: "arrow-right-circle", color: "text-blue-900" },
+            { id: 6, text: 'El método UEPS es el más recomendado para artículos con fecha de caducidad cercana.', answer: false, explanation: 'Falso. Para artículos con caducidad se recomienda PEPS.', icon: "calendar-x", color: "text-blue-900" },
+            { id: 7, text: 'El Promedio Ponderado suaviza los precios en el cálculo de costos.', answer: true, explanation: 'Verdadero. Es un cálculo recurrente que determina un costo medio.', icon: "calculator", color: "text-blue-900" },
+            { id: 8, text: 'La NIC 2 regula los métodos de valoración de inventarios.', answer: true, explanation: 'Verdadero. Es la norma contable internacional de referencia.', icon: "file-text", color: "text-blue-900" },
+            { id: 9, text: 'El método UEPS (LIFO) es ideal en contextos inflacionarios pero tiene uso restringido.', answer: true, explanation: 'Verdadero. Refleja las salidas más recientes a precios actuales.', icon: "trending-up", color: "text-blue-900" },
+            { id: 10, text: 'El inventario solo incluye productos terminados.', answer: false, explanation: 'Falso. Incluye materias primas, productos en proceso y suministros.', icon: "package-2", color: "text-blue-900" },
+            { id: 11, text: 'Un buen manejo de inventario compensa los tiempos de transporte.', answer: true, explanation: 'Verdadero. Permite mantener la operatividad mientras llega nueva mercancía.', icon: "truck", color: "text-blue-900" },
+            { id: 12, text: 'El stock de seguridad es la cantidad mínima de inventario que se debe tener para evitar faltantes.', answer: true, explanation: 'Verdadero. Actúa como un colchón ante imprevistos.', icon: "shield", color: "text-blue-900" },
+            { id: 13, text: 'El exceso de inventario no genera costos adicionales de almacenamiento.', answer: false, explanation: 'Falso. El exceso genera costos de mantenimiento, espacio y posible obsolescencia.', icon: "dollar-sign", color: "text-blue-900" },
+            { id: 14, text: 'La cadena logística se ve afectada negativamente por un control de inventarios ineficiente.', answer: true, explanation: 'Verdadero. Puede causar retrasos y pérdida de clientes.', icon: "link", color: "text-blue-900" },
+            { id: 15, text: 'El conteo cíclico consiste en contar el inventario completo una sola vez al año.', answer: false, explanation: 'Falso. El conteo cíclico es frecuente y por secciones.', icon: "rotate-cw", color: "text-blue-900" },
+            { id: 16, text: 'El punto de pedido es el nivel de existencia en el cual se debe realizar una nueva compra.', answer: true, explanation: 'Verdadero. Es clave para el reabastecimiento.', icon: "shopping-cart", color: "text-blue-900" },
+            { id: 17, text: 'Los suministros de oficina no se consideran parte del inventario de una empresa.', answer: false, explanation: 'Falso. Son inventario de consumo o suministros necesarios para la operación.', icon: "pen-tool", color: "text-blue-900" },
+            { id: 18, text: 'El inventario de mercancías en tránsito se refiere a productos que ya fueron pagados pero no han llegado al almacén.', answer: true, explanation: 'Verdadero. Son propiedad de la empresa aunque no estén físicamente.', icon: "ship", color: "text-blue-900" },
+            { id: 19, text: 'La obsolescencia ocurre cuando un producto pierde vigencia en el mercado.', answer: true, explanation: 'Verdadero. Es un riesgo constante en la gestión de stocks.', icon: "clock-3", color: "text-blue-900" },
+            { id: 20, text: 'El sistema de inventario perpetuo requiere un conteo físico diario de todo el almacén.', answer: false, explanation: 'Falso. El perpetuo se actualiza automáticamente con cada transacción.', icon: "database", color: "text-blue-900" },
+            { id: 21, text: 'La rotación de inventario indica cuántas veces se renueva el stock en un periodo.', answer: true, explanation: 'Verdadero. Es un indicador de eficiencia en ventas.', icon: "repeat", color: "text-blue-900" },
+            { id: 22, text: 'El costo de adquisición incluye el precio de compra más los gastos de transporte.', answer: true, explanation: 'Verdadero. Todos los gastos necesarios para tener el bien listo.', icon: "receipt", color: "text-blue-900" },
+            { id: 23, text: 'Un inventario alto siempre es mejor que uno bajo.', answer: false, explanation: 'Falso. Depende de la demanda; un inventario muy alto inmoviliza capital.', icon: "bar-chart", color: "text-blue-900" },
+            { id: 24, text: 'El almacenamiento adecuado ayuda a preservar la calidad de los productos.', answer: true, explanation: 'Verdadero. Evita daños físicos o químicos.', icon: "home", color: "text-blue-900" },
+            { id: 25, text: 'La planificación del inventario debe estar alineada con los objetivos de venta.', answer: true, explanation: 'Verdadero. Para asegurar que haya stock de lo que realmente se vende.', icon: "target", color: "text-blue-900" }
+        ];
+
+        function App() {
+            const [appState, setAppState] = useState('start'); 
+            const [userName, setUserName] = useState('');
+            const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+            const [score, setScore] = useState(0);
+            const [selectedAnswer, setSelectedAnswer] = useState(null);
+            const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
+            const [results, setResults] = useState([]);
+            const [errorMessage, setErrorMessage] = useState('');
+
+            const handleStart = (e) => {
+                e.preventDefault();
+                if (userName.trim()) setAppState('playing');
+            };
+
+            const handleAnswer = (answer) => {
+                if (isAnswerSubmitted) return;
+                const correct = answer === questions[currentQuestionIndex].answer;
+                setSelectedAnswer(answer);
+                setIsAnswerSubmitted(true);
+                if (correct) setScore(s => s + 1);
+                setResults([...results, { pregunta: questions[currentQuestionIndex].text, correcta: correct }]);
+            };
+
+            const handleNext = () => {
+                if (currentQuestionIndex < questions.length - 1) {
+                    setCurrentQuestionIndex(i => i + 1);
+                    setSelectedAnswer(null);
+                    setIsAnswerSubmitted(false);
+                } else {
+                    setAppState('finished');
+                }
+            };
+
+            const sendToDrive = async () => {
+                if (!WEB_APP_URL || WEB_APP_URL.includes("ESCRIBE_AQUI")) {
+                    setErrorMessage("Error: URL de Google Apps Script no configurada.");
+                    return;
+                }
+                setAppState('sending');
+                const percentage = Math.round((score / questions.length) * 100);
+                const payload = { nombre: userName, puntaje: score, total: questions.length, porcentaje: percentage, respuestas: results };
+                try {
+                    await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', cache: 'no-cache', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    setTimeout(() => setAppState('exit'), 1000);
+                } catch (error) {
+                    setErrorMessage("Problema al enviar. Verifique su conexión.");
+                    setAppState('finished'); 
+                }
+            };
+
+            if (appState === 'exit') return (
+                <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6 animate-fade-in">
+                    <div className="bg-white p-10 rounded-3xl shadow-xl text-center max-w-sm border-t-8 border-blue-900">
+                        <div className="w-20 h-20 bg-blue-50 text-blue-900 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Icon name="check-circle" className="w-12 h-12" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">¡Prueba Finalizada!</h2>
+                        <p className="text-gray-600 mb-8">Tus respuestas de Inventario han sido guardadas.</p>
+                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest italic">Cerrar Sesión</p>
+                    </div>
+                </div>
+            );
+
+            if (appState === 'sending') return (
+                <div className="min-h-screen flex items-center justify-center bg-white">
+                    <div className="text-center">
+                        <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-100 h-16 w-16 mb-4 mx-auto"></div>
+                        <h2 className="text-xl font-bold text-blue-900">Enviando a Drive...</h2>
+                    </div>
+                </div>
+            );
+
+            if (appState === 'start') return (
+                <div className="min-h-screen flex items-center justify-center p-4 bg-slate-200">
+                    <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-300">
+                        <div className="bg-blue-950 p-12 text-white text-center">
+                            <div className="bg-white/10 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 backdrop-blur-md">
+                                <Icon name="boxes" className="w-14 h-14" />
+                            </div>
+                            <h1 className="text-2xl font-black uppercase tracking-widest">Manejo de Inventario</h1>
+                            <p className="opacity-60 text-xs mt-3 font-bold uppercase">Unidad Curricular / 25 Reactivos</p>
+                        </div>
+                        <form onSubmit={handleStart} className="p-10">
+                            <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-4 text-center">Identificación del Estudiante</label>
+                            <input required autoFocus className="w-full p-5 border-2 border-slate-100 rounded-2xl mb-8 outline-none focus:border-blue-900 text-center text-lg" value={userName} onChange={e => setUserName(e.target.value)} placeholder="Nombre Completo" />
+                            <button className="w-full bg-blue-900 text-white font-black py-5 rounded-2xl hover:bg-blue-950 transition-all shadow-xl shadow-blue-200 active:scale-95 flex items-center justify-center space-x-3">
+                                <span className="tracking-widest">INICIAR PRUEBA</span>
+                                <Icon name="play" className="w-5 h-5" />
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+
+            if (appState === 'finished') return (
+                <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+                    <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-12 text-center border-b-[12px] border-blue-950 animate-fade-in">
+                        <h2 className="text-gray-400 font-bold uppercase tracking-widest mb-2 text-[10px]">Resultado Final</h2>
+                        <h1 className="text-3xl font-black text-blue-950 mb-8">{userName}</h1>
+                        <div className="bg-blue-50/50 rounded-[3rem] py-14 mb-8 border border-blue-100 shadow-inner">
+                            <div className="text-8xl font-black text-blue-900 leading-none">{score}</div>
+                            <div className="text-blue-300 font-black uppercase tracking-tighter mt-4 text-xl">de {questions.length} puntos</div>
+                        </div>
+                        {errorMessage && <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100">{errorMessage}</div>}
+                        <button onClick={sendToDrive} className="w-full bg-blue-900 text-white font-black py-6 rounded-2xl flex items-center justify-center space-x-3 shadow-2xl shadow-blue-200 hover:bg-blue-950 transition-all active:scale-95">
+                            <Icon name="send" className="w-6 h-6" />
+                            <span className="tracking-widest">GUARDAR NOTA</span>
+                        </button>
+                    </div>
+                </div>
+            );
+
+            const q = questions[currentQuestionIndex];
+            const isCorrect = isAnswerSubmitted && selectedAnswer === q.answer;
+
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-start p-4 bg-slate-50 pt-10">
+                    <div className="max-w-2xl w-full">
+                        <div className="mb-10 px-4">
+                            <div className="flex justify-between items-end mb-3">
+                                <span className="text-[10px] font-black text-blue-900/40 uppercase tracking-widest">Evaluación en progreso</span>
+                                <span className="text-xs font-black text-blue-900">{Math.round(((currentQuestionIndex + 1) / questions.length) * 100)}%</span>
+                            </div>
+                            <div className="w-full h-4 bg-blue-100 rounded-full overflow-hidden p-1">
+                                <div className="h-full bg-blue-900 progress-bar rounded-full" style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}></div>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 flex justify-between items-center px-6">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Ítem {currentQuestionIndex + 1} de {questions.length}</span>
+                            <span className="px-4 py-2 bg-blue-900 text-white rounded-lg text-[9px] font-black uppercase tracking-[0.2em]">Logística / Inventario</span>
+                        </div>
+
+                        <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100 transition-all">
+                            <div className="p-12 sm:p-16 text-center">
+                                <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-10 bg-blue-50 ${q.color}`}>
+                                    <Icon name={q.icon} className="w-12 h-12" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-slate-800 leading-snug mb-14">{q.text}</h2>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <button disabled={isAnswerSubmitted} onClick={() => handleAnswer(true)} className={`py-7 rounded-3xl border-2 font-black uppercase tracking-widest text-xs transition-all ${!isAnswerSubmitted ? 'border-slate-100 hover:border-blue-900 hover:text-blue-900 bg-white shadow-sm' : selectedAnswer === true ? (q.answer === true ? 'bg-green-600 border-green-600 text-white shadow-lg' : 'bg-red-600 border-red-600 text-white') : (q.answer === true ? 'border-green-200 text-green-300' : 'opacity-10')}`}>Verdadero</button>
+                                    <button disabled={isAnswerSubmitted} onClick={() => handleAnswer(false)} className={`py-7 rounded-3xl border-2 font-black uppercase tracking-widest text-xs transition-all ${!isAnswerSubmitted ? 'border-slate-100 hover:border-blue-900 hover:text-blue-900 bg-white shadow-sm' : selectedAnswer === false ? (q.answer === false ? 'bg-green-600 border-green-600 text-white shadow-lg' : 'bg-red-600 border-red-600 text-white') : (q.answer === false ? 'border-green-200 text-green-300' : 'opacity-10')}`}>Falso</button>
+                                </div>
+                            </div>
+                            {isAnswerSubmitted && (
+                                <div className={`p-12 border-t-[10px] animate-fade-in ${isCorrect ? 'bg-green-50 border-green-600' : 'bg-red-50 border-red-600'}`}>
+                                    <div className="flex items-start space-x-6">
+                                        <div className={`p-3 rounded-2xl ${isCorrect ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
+                                            <Icon name={isCorrect ? "smile" : "info"} className="w-8 h-8" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-slate-800 text-lg mb-10 font-medium leading-relaxed">{q.explanation}</p>
+                                            <button onClick={handleNext} className="w-full sm:w-auto bg-blue-950 text-white py-5 px-14 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center space-x-3 hover:bg-black transition-all shadow-2xl shadow-blue-100">
+                                                <span>{currentQuestionIndex < questions.length - 1 ? 'Siguiente Ítem' : 'Finalizar Examen'}</span>
+                                                <Icon name="arrow-right" className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
